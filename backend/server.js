@@ -79,6 +79,121 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// --- Users CRUD ---
+
+// Get all users
+app.get('/api/users', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT UserName, Password, UserType, Email, Mobile, BusinessName, Address, ContactNo, DeviceId, Salary, Rate, ShiftHours, BreakHours
+      FROM [dbo].[DTUserMaster]
+    `);
+    res.json({ success: true, data: result.recordset });
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ success: false, message: 'Failed to fetch users' });
+  }
+});
+
+// Create user
+app.post('/api/users', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const {
+      UserName, Password, UserType, Email, Mobile, BusinessName, Address, ContactNo, DeviceId, Salary, Rate, ShiftHours, BreakHours
+    } = req.body;
+
+    await pool.request()
+      .input('UserName', sql.VarChar, UserName)
+      .input('Password', sql.VarChar, Password)
+      .input('UserType', sql.VarChar, UserType)
+      .input('Email', sql.VarChar, Email)
+      .input('Mobile', sql.VarChar, Mobile)
+      .input('BusinessName', sql.VarChar, BusinessName)
+      .input('Address', sql.VarChar, Address)
+      .input('ContactNo', sql.VarChar, ContactNo)
+      .input('DeviceId', sql.VarChar, DeviceId)
+      .input('Salary', sql.Numeric, Salary)
+      .input('Rate', sql.Numeric, Rate)
+      .input('ShiftHours', sql.Decimal, ShiftHours)
+      .input('BreakHours', sql.Decimal, BreakHours)
+      .query(`
+        INSERT INTO [dbo].[DTUserMaster] 
+        (UserName, Password, UserType, Email, Mobile, BusinessName, Address, ContactNo, DeviceId, Salary, Rate, ShiftHours, BreakHours)
+        VALUES 
+        (@UserName, @Password, @UserType, @Email, @Mobile, @BusinessName, @Address, @ContactNo, @DeviceId, @Salary, @Rate, @ShiftHours, @BreakHours)
+      `);
+    res.json({ success: true, message: 'User created successfully' });
+  } catch (err) {
+    console.error("Error creating user:", err);
+    res.status(500).json({ success: false, message: 'Failed to create user' });
+  }
+});
+
+// Update user
+app.put('/api/users/:username', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const { username } = req.params;
+    const {
+      Password, UserType, Email, Mobile, BusinessName, Address, ContactNo, DeviceId, Salary, Rate, ShiftHours, BreakHours
+    } = req.body;
+
+    await pool.request()
+      .input('UserName', sql.VarChar, username)
+      .input('Password', sql.VarChar, Password)
+      .input('UserType', sql.VarChar, UserType)
+      .input('Email', sql.VarChar, Email)
+      .input('Mobile', sql.VarChar, Mobile)
+      .input('BusinessName', sql.VarChar, BusinessName)
+      .input('Address', sql.VarChar, Address)
+      .input('ContactNo', sql.VarChar, ContactNo)
+      .input('DeviceId', sql.VarChar, DeviceId)
+      .input('Salary', sql.Numeric, Salary)
+      .input('Rate', sql.Numeric, Rate)
+      .input('ShiftHours', sql.Decimal, ShiftHours)
+      .input('BreakHours', sql.Decimal, BreakHours)
+      .query(`
+        UPDATE [dbo].[DTUserMaster] SET
+          Password = @Password,
+          UserType = @UserType,
+          Email = @Email,
+          Mobile = @Mobile,
+          BusinessName = @BusinessName,
+          Address = @Address,
+          ContactNo = @ContactNo,
+          DeviceId = @DeviceId,
+          Salary = @Salary,
+          Rate = @Rate,
+          ShiftHours = @ShiftHours,
+          BreakHours = @BreakHours
+        WHERE UserName = @UserName
+      `);
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (err) {
+    console.error("Error updating user:", err);
+    res.status(500).json({ success: false, message: 'Failed to update user' });
+  }
+});
+
+// Delete user
+app.delete('/api/users/:username', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const { username } = req.params;
+
+    await pool.request()
+      .input('UserName', sql.VarChar, username)
+      .query(`DELETE FROM [dbo].[DTUserMaster] WHERE UserName = @UserName`);
+      
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    console.error("Error deleting user:", err);
+    res.status(500).json({ success: false, message: 'Failed to delete user' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

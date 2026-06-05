@@ -8,6 +8,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [user, setUser] = useState<any>(null);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isMastersOpen, setIsMastersOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Check if user is logged in
@@ -32,8 +33,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
+      <style>{`
+        .sidebar {
+          transition: transform 0.3s ease;
+        }
+        @media (max-width: 768px) {
+          .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            transform: translateX(-100%);
+          }
+          .sidebar.open {
+            transform: translateX(0);
+          }
+          .mobile-header {
+            display: flex !important;
+          }
+          .mobile-overlay {
+            display: block !important;
+          }
+        }
+      `}</style>
+
+      {/* Mobile Overlay */}
+      <div 
+        className="mobile-overlay"
+        onClick={() => setIsSidebarOpen(false)}
+        style={{
+          display: 'none',
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 15,
+          opacity: isSidebarOpen ? 1 : 0,
+          pointerEvents: isSidebarOpen ? 'auto' : 'none',
+          transition: 'opacity 0.3s ease'
+        }}
+      />
+
       {/* Sidebar Drawer */}
-      <aside style={{ 
+      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} style={{ 
         width: '260px', 
         backgroundColor: '#111111', 
         color: '#ffffff',
@@ -125,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {isMastersOpen && (
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, backgroundColor: '#1a1a1a' }}>
                 <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Customers</li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Brands</li>
+                <li onClick={(e) => { e.stopPropagation(); router.push('/dashboard/brands'); }} style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Brands</li>
                 <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Categories</li>
                 <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Service Centers</li>
               </ul>
@@ -163,7 +204,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content Wrapper */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+        
+        {/* Mobile Header */}
+        <div className="mobile-header" style={{ 
+          display: 'none', 
+          padding: '15px 20px', 
+          backgroundColor: '#fff', 
+          borderBottom: '1px solid #ddd',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 5
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#111' }}>Softech</span>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', color: '#111', padding: '0 5px' }}
+          >
+            ☰
+          </button>
+        </div>
+
         {/* Dynamic Content */}
         {children}
       </main>

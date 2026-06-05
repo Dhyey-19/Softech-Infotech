@@ -15,7 +15,7 @@ export default function DashboardPage() {
   if (!user) return <div style={{ padding: '40px' }}>Loading profile data...</div>;
 
   return (
-    <div style={{ padding: '40px', flex: 1, overflowY: 'auto' }}>
+    <div className="page-padding" style={{ flex: 1, overflowY: 'auto' }}>
       <h2 style={{ margin: '0 0 30px 0', color: '#111111' }}>Dashboard Overview</h2>
       
       <div style={{ 

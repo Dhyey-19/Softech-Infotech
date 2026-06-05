@@ -45,8 +45,8 @@ export default function Login() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)' }}>
-      <div className="glass-card" style={{ maxWidth: '400px', width: '100%', padding: '40px', textAlign: 'center' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)', padding: '20px' }}>
+      <div className="glass-card" style={{ maxWidth: '400px', width: '100%', padding: '40px 20px', textAlign: 'center', boxSizing: 'border-box' }}>
         
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

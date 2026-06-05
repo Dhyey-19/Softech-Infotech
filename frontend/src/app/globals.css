@@ -106,3 +106,13 @@ button:hover {
 .animate-fade-in {
   animation: fadeIn 0.8s ease-out forwards;
 }
+
+.page-padding {
+  padding: 40px;
+}
+
+@media (max-width: 768px) {
+  .page-padding {
+    padding: 20px;
+  }
+}

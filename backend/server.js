@@ -194,6 +194,81 @@ app.delete('/api/users/:username', async (req, res) => {
   }
 });
 
+// --- Brands CRUD ---
+
+// Get all brands
+app.get('/api/brands', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT BrandName
+      FROM [dbo].[DTItemBrand]
+    `);
+    res.json({ success: true, data: result.recordset });
+  } catch (err) {
+    console.error("Error fetching brands:", err);
+    res.status(500).json({ success: false, message: 'Failed to fetch brands' });
+  }
+});
+
+// Create brand
+app.post('/api/brands', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const { BrandName } = req.body;
+
+    await pool.request()
+      .input('BrandName', sql.VarChar, BrandName)
+      .query(`
+        INSERT INTO [dbo].[DTItemBrand] (BrandName)
+        VALUES (@BrandName)
+      `);
+    res.json({ success: true, message: 'Brand created successfully' });
+  } catch (err) {
+    console.error("Error creating brand:", err);
+    res.status(500).json({ success: false, message: 'Failed to create brand' });
+  }
+});
+
+// Update brand
+app.put('/api/brands/:oldName', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const { oldName } = req.params;
+    const { BrandName } = req.body;
+
+    await pool.request()
+      .input('OldName', sql.VarChar, oldName)
+      .input('NewName', sql.VarChar, BrandName)
+      .query(`
+        UPDATE [dbo].[DTItemBrand] 
+        SET BrandName = @NewName
+        WHERE BrandName = @OldName
+      `);
+    res.json({ success: true, message: 'Brand updated successfully' });
+  } catch (err) {
+    console.error("Error updating brand:", err);
+    res.status(500).json({ success: false, message: 'Failed to update brand' });
+  }
+});
+
+// Delete brand
+app.delete('/api/brands/:brandName', async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const { brandName } = req.params;
+
+    await pool.request()
+      .input('BrandName', sql.VarChar, brandName)
+      .query(`DELETE FROM [dbo].[DTItemBrand] WHERE BrandName = @BrandName`);
+      
+    res.json({ success: true, message: 'Brand deleted successfully' });
+  } catch (err) {
+    console.error("Error deleting brand:", err);
+    res.status(500).json({ success: false, message: 'Failed to delete brand' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

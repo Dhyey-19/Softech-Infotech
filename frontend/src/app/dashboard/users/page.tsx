@@ -189,7 +189,7 @@ export default function UsersPage() {
   if (loading) return <div style={{ padding: '40px' }}>Loading users...</div>;
 
   return (
-    <div style={{ padding: '40px', flex: 1, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
+    <div className="page-padding" style={{ flex: 1, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <h2 style={{ color: '#111111', margin: 0 }}>Manage Users</h2>
         <button 
@@ -245,7 +245,19 @@ export default function UsersPage() {
               {isEditing ? 'Edit User' : 'Add New User'}
             </h3>
             
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <style>{`
+              .responsive-form {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+              }
+              @media (max-width: 768px) {
+                .responsive-form {
+                  grid-template-columns: 1fr;
+                }
+              }
+            `}</style>
+            <form onSubmit={handleSubmit} className="responsive-form">
               
               <FloatingInput label="Username" name="UserName" value={formData.UserName} onChange={handleInputChange} required={true} disabled={isEditing} />
               <FloatingInput label="Password" name="Password" type="password" value={formData.Password} onChange={handleInputChange} required={!isEditing} />

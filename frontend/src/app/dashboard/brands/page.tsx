@@ -1,55 +1,7 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-
-const FloatingInput = ({ label, name, type = 'text', value, onChange, required = false, disabled = false, step }: any) => {
-  const [focused, setFocused] = useState(false);
-  const active = focused || (value !== '' && value !== null && value !== undefined);
-
-  return (
-    <div style={{ position: 'relative', marginTop: '10px' }}>
-      <label 
-        style={{
-          position: 'absolute',
-          left: '10px',
-          top: active ? '-8px' : '14px',
-          fontSize: active ? '0.75rem' : '0.9rem',
-          color: active ? '#e60000' : '#888',
-          backgroundColor: '#fff',
-          padding: '0 4px',
-          transition: 'all 0.2s ease-out',
-          pointerEvents: 'none',
-          fontWeight: active ? 'bold' : 'normal',
-          zIndex: 1
-        }}
-      >
-        {label} {required && '*'}
-      </label>
-      <input 
-        name={name}
-        type={type}
-        value={value}
-        onChange={onChange}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        required={required}
-        disabled={disabled}
-        step={step}
-        style={{ 
-          width: '100%', 
-          padding: '14px', 
-          border: `1px solid ${active ? '#e60000' : '#ddd'}`, 
-          borderRadius: '6px', 
-          outline: 'none',
-          boxSizing: 'border-box',
-          backgroundColor: disabled ? '#f9f9f9' : 'transparent',
-          color: '#111',
-          transition: 'border-color 0.2s'
-        }} 
-      />
-    </div>
-  );
-};
+import React, { useState, useEffect } from 'react';
+import { Icon } from '../../../components/Icons';
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<any[]>([]);
@@ -67,7 +19,8 @@ export default function BrandsPage() {
 
   const fetchBrands = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/brands');
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${baseUrl}/brands`);
       const data = await response.json();
       if (data.success) {
         setBrands(data.data);
@@ -85,16 +38,14 @@ export default function BrandsPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const url = isEditing ? `http://localhost:5000/api/brands/${encodeURIComponent(oldBrandName)}` : 'http://localhost:5000/api/brands';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const url = isEditing ? `${baseUrl}/brands/${encodeURIComponent(oldBrandName)}` : `${baseUrl}/brands`;
       const method = isEditing ? 'PUT' : 'POST';
       const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) });
       const data = await response.json();
@@ -119,7 +70,8 @@ export default function BrandsPage() {
   const handleDelete = async (brandName: string) => {
     if (!confirm(`Are you sure you want to delete brand ${brandName}?`)) return;
     try {
-      const response = await fetch(`http://localhost:5000/api/brands/${encodeURIComponent(brandName)}`, { method: 'DELETE' });
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${baseUrl}/brands/${encodeURIComponent(brandName)}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.success) fetchBrands();
       else alert(data.message || 'Error deleting brand');
@@ -135,75 +87,134 @@ export default function BrandsPage() {
     setIsModalOpen(true);
   };
 
-  if (loading) return <div style={{ padding: '40px' }}>Loading brands...</div>;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>Loading brands data...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-padding" style={{ flex: 1, backgroundColor: '#f5f5f5', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h2 style={{ color: '#111111', margin: 0 }}>Manage Brands</h2>
-        <button 
-          onClick={openNewModal}
-          style={{ backgroundColor: '#e60000', color: '#fff', padding: '10px 20px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(230,0,0,0.3)' }}>
-          + Add New Brand
+    <div className="page-padding animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      
+      {/* Header section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800 }}>Brand Master Catalog</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
+            Manage item brands and manufacturer catalogs in operations database.
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={openNewModal}>
+          <Icon name="plus" size={16} /> Add New Brand
         </button>
       </div>
 
-      <div style={{ backgroundColor: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#111111', color: '#fff' }}>
-                <th style={{ padding: '15px' }}>Brand Name</th>
-                <th style={{ padding: '15px', width: '200px' }}>Actions</th>
+      {/* Brands List Table */}
+      <div className="custom-table-container" style={{ maxWidth: '640px' }}>
+        <table className="custom-table">
+          <thead>
+            <tr>
+              <th>Brand Name Identifier</th>
+              <th style={{ width: '150px' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {brands.map(brand => (
+              <tr key={brand.BrandName}>
+                <td style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{brand.BrandName}</td>
+                <td>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button 
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }} 
+                      onClick={() => handleEdit(brand)}
+                      title="Edit brand name"
+                    >
+                      <Icon name="edit" size={16} />
+                    </button>
+                    <button 
+                      style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 0 }} 
+                      onClick={() => handleDelete(brand.BrandName)}
+                      title="Delete brand"
+                    >
+                      <Icon name="delete" size={16} />
+                    </button>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {brands.map((brand, index) => (
-                <tr key={brand.BrandName} style={{ borderBottom: '1px solid #eeeeee', backgroundColor: index % 2 === 0 ? '#fafafa' : '#ffffff' }}>
-                  <td style={{ padding: '15px', fontWeight: 'bold' }}>{brand.BrandName}</td>
-                  <td style={{ padding: '15px' }}>
-                    <button onClick={() => handleEdit(brand)} style={{ marginRight: '10px', padding: '5px 10px', backgroundColor: '#111', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                    <button onClick={() => handleDelete(brand.BrandName)} style={{ padding: '5px 10px', backgroundColor: 'transparent', color: '#e60000', border: '1px solid #e60000', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-              {brands.length === 0 && (
-                <tr><td colSpan={2} style={{ padding: '30px', textAlign: 'center', color: '#888' }}>No brands found.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            ))}
+            {brands.length === 0 && (
+              <tr>
+                <td colSpan={2} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>
+                  No active brands registered in catalog.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
+      {/* Brand Creation dialog */}
       {isModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: '#fff', padding: '35px', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '25px', color: '#111', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
-              {isEditing ? 'Edit Brand' : 'Add New Brand'}
-            </h3>
-            
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              <FloatingInput label="Brand Name" name="BrandName" value={formData.BrandName} onChange={handleInputChange} required={true} />
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div className="glass-card animate-scale-up" style={{ width: '90%', maxWidth: '440px', backgroundColor: 'var(--surface)' }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderBottom: '1px solid var(--border)',
+              paddingBottom: '14px',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ margin: 0 }}>
+                {isEditing ? 'Modify Brand Name' : 'Register New Brand'}
+              </h3>
+              <button 
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                onClick={() => setIsModalOpen(false)}
+              >
+                <Icon name="close" size={20} />
+              </button>
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '10px' }}>
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  style={{ padding: '12px 25px', border: '1px solid #ddd', backgroundColor: '#fff', color: '#333', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}>
-                  Cancel
-                </button>
-                <button 
-                  type="submit"
-                  style={{ padding: '12px 25px', border: 'none', backgroundColor: '#e60000', color: '#fff', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(230,0,0,0.2)', transition: 'background 0.2s' }}>
-                  {isEditing ? 'Update Brand' : 'Save Brand'}
-                </button>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  Brand Name *
+                </label>
+                <input 
+                  type="text" 
+                  name="BrandName" 
+                  required 
+                  className="form-input" 
+                  placeholder="e.g. Intel, AMD, Seagate"
+                  value={formData.BrandName} 
+                  onChange={handleInputChange} 
+                />
               </div>
 
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '14px', borderTop: '1px solid var(--border)', paddingTop: '14px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary">
+                  {isEditing ? 'Save Changes' : 'Register Brand'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }

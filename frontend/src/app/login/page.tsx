@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import styles from '../page.module.css';
+import { Icon } from '../../components/Icons';
 
 export default function Login() {
   const router = useRouter();
@@ -10,6 +10,26 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    // Theme sync
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    const saved = localStorage.getItem('rememberedUser');
+    if (saved) {
+      setUsername(saved);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,104 +46,261 @@ export default function Login() {
       const data = await res.json();
 
       if (data.success) {
-        // Store token and user data in local storage
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        if (rememberMe) {
+          localStorage.setItem('rememberedUser', username);
+        } else {
+          localStorage.removeItem('rememberedUser');
+        }
         
-        // Redirect to dashboard (placeholder)
-        alert(`Welcome back, ${data.user.BusinessName || data.user.UserName}!`);
         router.push('/dashboard');
       } else {
         setError(data.message || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
       console.error(err);
-      setError('An error occurred while trying to connect to the server.');
+      setError('Could not connect to the authentication server.');
     } finally {
       setLoading(false);
     }
   };
 
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--background)', padding: '20px' }}>
-      <div className="glass-card" style={{ maxWidth: '400px', width: '100%', padding: '40px 20px', textAlign: 'center', boxSizing: 'border-box' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'var(--background)',
+      padding: '24px',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      
+      {/* Dynamic Background Circles */}
+      <div style={{
+        position: 'absolute',
+        width: '300px',
+        height: '300px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, var(--primary) 0%, rgba(37,99,235,0) 70%)',
+        top: '-50px',
+        left: '-50px',
+        opacity: 0.15,
+        filter: 'blur(30px)',
+        zIndex: 0
+      }} />
+      <div style={{
+        position: 'absolute',
+        width: '400px',
+        height: '400px',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, var(--secondary) 0%, rgba(29,78,216,0) 70%)',
+        bottom: '-100px',
+        right: '-100px',
+        opacity: 0.15,
+        filter: 'blur(40px)',
+        zIndex: 0
+      }} />
+
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        style={{
+          position: 'absolute',
+          top: '24px',
+          right: '24px',
+          background: 'none',
+          border: 'none',
+          color: 'var(--foreground)',
+          cursor: 'pointer',
+          padding: '10px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--surface-hover)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: 'var(--shadow)',
+          zIndex: 10
+        }}
+      >
+        <Icon name={theme === 'light' ? 'moon' : 'sun'} size={20} />
+      </button>
+
+      <div className="glass-card animate-scale-up" style={{
+        maxWidth: '440px',
+        width: '100%',
+        padding: '40px 32px',
+        position: 'relative',
+        zIndex: 5,
+        boxShadow: 'var(--shadow-lg)'
+      }}>
         
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        {/* Branding Title */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            backgroundColor: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 16px rgba(37,99,235,0.25)',
+            marginBottom: '16px'
+          }}>
+            <Icon name="dashboard" size={24} style={{ color: '#ffffff' }} />
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
+            Softech <span style={{ color: '#2563eb' }}>Infotech</span>
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '6px' }}>
+            Sign in to access your CRM & ERP environment
+          </p>
         </div>
 
-        <h2 style={{ marginBottom: '30px', fontSize: '1.8rem', color: 'var(--foreground)' }}>Sign In</h2>
-        
         {error && (
-          <div style={{ backgroundColor: '#fee2e2', color: '#b91c1c', padding: '10px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem' }}>
-            {error}
+          <div style={{
+            backgroundColor: 'var(--error-light)',
+            border: '1px solid rgba(239, 68, 68, 0.2)',
+            color: 'var(--error)',
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '24px',
+            fontSize: '0.8rem',
+            display: 'flex',
+            gap: '8px',
+            alignItems: 'center'
+          }}>
+            <Icon name="alert" size={16} />
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Username</label>
+          <div>
+            <label style={{
+              display: 'block',
+              marginBottom: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              color: 'var(--foreground)'
+            }}>
+              Username
+            </label>
             <input 
               type="text" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '12px 15px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface)',
-                color: 'var(--foreground)',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-              placeholder="Enter your username"
+              className="form-input"
+              placeholder="e.g. Admin01"
+              style={{ padding: '12px 14px' }}
             />
           </div>
           
-          <div style={{ textAlign: 'left' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Password</label>
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <label style={{
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--foreground)'
+              }}>
+                Password
+              </label>
+              <span style={{ fontSize: '0.75rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>
+                Reset Pin
+              </span>
+            </div>
+            
             <input 
-              type="password" 
+              type={showPassword ? "text" : "password"} 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '12px 15px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface)',
-                color: 'var(--foreground)',
-                fontSize: '1rem',
-                outline: 'none'
-              }}
-              placeholder="Enter your password"
+              className="form-input"
+              placeholder="Enter security key"
+              style={{ padding: '12px 40px 12px 14px' }}
             />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '36px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px'
+              }}
+            >
+              <Icon name={showPassword ? "sun" : "moon"} size={16} />
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer'
+            }}>
+              <input 
+                type="checkbox" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{
+                  width: '16px',
+                  height: '16px',
+                  cursor: 'pointer',
+                  accentColor: 'var(--primary)',
+                  borderRadius: '4px'
+                }}
+              />
+              Remember username
+            </label>
           </div>
 
           <button 
             type="submit" 
             disabled={loading}
-            style={{ 
-              marginTop: '10px', 
-              padding: '14px', 
-              fontSize: '1.1rem', 
-              borderRadius: '8px',
-              opacity: loading ? 0.7 : 1
+            className="btn btn-primary"
+            style={{
+              padding: '12px 14px',
+              fontSize: '0.95rem',
+              width: '100%',
+              marginTop: '10px'
             }}
           >
-            {loading ? 'Authenticating...' : 'Login'}
+            {loading ? 'Authenticating...' : 'Sign In to Portal'}
           </button>
         </form>
 
-        <p style={{ marginTop: '20px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          <span style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>&larr; Back to Home</span>
+        <p style={{ marginTop: '24px', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          <span 
+            style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--primary)' }} 
+            onClick={() => router.push('/')}
+          >
+            &larr; Return to main landing page
+          </span>
         </p>
       </div>
     </div>

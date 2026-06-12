@@ -1,17 +1,48 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Icon, IconName } from '../../components/Icons';
+
+interface SidebarItem {
+  label: string;
+  view?: string;
+  path?: string;
+  icon: IconName;
+}
+
+interface NavGroup {
+  title: string;
+  items: SidebarItem[];
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [isMastersOpen, setIsMastersOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  
+  // Layout States
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [activeView, setActiveView] = useState('dashboard');
+  const [theme, setTheme] = useState('light');
+  
+  // Dropdown States
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Mock Notifications for system alerts
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'Low Stock Alert', desc: 'ASUS Motherboard Prime H510 is below 3 units.', time: '10 mins ago', type: 'warning', read: false },
+    { id: 2, title: 'New Lead Assigned', desc: 'Reliance Refineries lead assigned to you.', time: '1 hr ago', type: 'info', read: false },
+    { id: 3, title: 'Check In Success', desc: 'You checked in successfully at 09:32 AM.', time: '4 hrs ago', type: 'success', read: true },
+  ]);
 
   useEffect(() => {
-    // Check if user is logged in
+    // Auth check
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
 
@@ -21,7 +52,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     setUser(JSON.parse(userData));
-  }, [router]);
+
+    // Theme initialization
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(savedTheme);
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+
+    // Read view from search params
+    const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get('view') || 'dashboard';
+      setActiveView(view);
+    };
+
+    handleUrlChange();
+    // Watch for URL changes on client-side
+    window.addEventListener('popstate', handleUrlChange);
+    return () => window.removeEventListener('popstate', handleUrlChange);
+  }, [router, pathname]);
+
+  // Click outside listener for dropdowns
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setIsNotificationOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -29,212 +95,645 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/login');
   };
 
-  if (!user) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>Loading...</div>;
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  const handleSidebarItemClick = (item: SidebarItem) => {
+    setIsMobileOpen(false);
+    if (item.path) {
+      router.push(item.path);
+    } else if (item.view) {
+      router.push(`/dashboard?view=${item.view}`);
+      setActiveView(item.view);
+    }
+  };
+
+  const getBreadcrumbs = () => {
+    if (pathname.includes('/users')) return ['Admin', 'Users'];
+    if (pathname.includes('/brands')) return ['Masters', 'Brand Catalog'];
+    if (pathname.includes('/attendance')) return ['HR & Staff', 'Attendance Logs'];
+    
+    if (activeView === 'events') return ['Admin', 'Events'];
+    if (activeView === 'applications') return ['Admin', 'Apps Log'];
+    
+    if (activeView === 'customers') return ['Masters', 'Customers'];
+    if (activeView === 'categories') return ['Masters', 'Categories'];
+    if (activeView === 'servicecenters') return ['Masters', 'Service Centers'];
+    
+    if (activeView === 'orders') return ['Orders'];
+    if (activeView === 'sales') return ['Sales'];
+    if (activeView === 'replacements') return ['Replacements'];
+    if (activeView === 'myattendance') return ['My Attendance'];
+    if (activeView === 'bankqrs') return ['Bank QR'];
+    if (activeView === 'profile') return ['Profile'];
+    
+    return ['Dashboard', 'Overview'];
+  };
+
+  const isItemActive = (item: SidebarItem) => {
+    if (item.path) {
+      return pathname === item.path;
+    }
+    if (item.view) {
+      return pathname === '/dashboard' && activeView === item.view;
+    }
+    return false;
+  };
+
+  const unreadNotifications = notifications.filter(n => !n.read).length;
+
+  const navigationGroups: NavGroup[] = [
+    {
+      title: 'Admin',
+      items: [
+        { label: 'Users', path: '/dashboard/users', icon: 'users' },
+        { label: 'Events', view: 'events', icon: 'followups' },
+        { label: 'Apps', view: 'applications', icon: 'tasks' }
+      ]
+    },
+    {
+      title: 'Masters',
+      items: [
+        { label: 'Customers', view: 'customers', icon: 'customers' },
+        { label: 'Brands', path: '/dashboard/brands', icon: 'brands' },
+        { label: 'Categories', view: 'categories', icon: 'categories' },
+        { label: 'Service Centers', view: 'servicecenters', icon: 'assets' }
+      ]
+    },
+    {
+      title: 'Operations',
+      items: [
+        { label: 'Dashboard', view: 'dashboard', icon: 'dashboard' },
+        { label: 'Orders', view: 'orders', icon: 'stock' },
+        { label: 'Sales', view: 'sales', icon: 'dollar' },
+        { label: 'Replacements', view: 'replacements', icon: 'refresh' },
+        { label: 'My Attendance', view: 'myattendance', icon: 'attendance' },
+        { label: 'Bank QR', view: 'bankqrs', icon: 'opportunities' }
+      ]
+    }
+  ];
+
+  if (!user) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', color: '#0f172a' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '4px solid #e2e8f0', borderTopColor: '#2563eb', animation: 'spin 1s linear infinite' }} />
+          <p style={{ fontWeight: 600 }}>Authenticating session...</p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
-      <style>{`
-        .sidebar {
-          transition: transform 0.3s ease;
-        }
-        @media (max-width: 768px) {
-          .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            transform: translateX(-100%);
-          }
-          .sidebar.open {
-            transform: translateX(0);
-          }
-          .mobile-header {
-            display: flex !important;
-          }
-          .mobile-overlay {
-            display: block !important;
-          }
-        }
-      `}</style>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: 'var(--background)', overflow: 'hidden' }}>
+      
+      {/* Mobile Drawer Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={() => setIsMobileOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 40,
+            transition: 'opacity 0.2s ease'
+          }}
+        />
+      )}
 
-      {/* Mobile Overlay */}
-      <div 
-        className="mobile-overlay"
-        onClick={() => setIsSidebarOpen(false)}
+      {/* Sidebar Panel */}
+      <aside
         style={{
-          display: 'none',
-          position: 'fixed',
-          top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          zIndex: 15,
-          opacity: isSidebarOpen ? 1 : 0,
-          pointerEvents: isSidebarOpen ? 'auto' : 'none',
-          transition: 'opacity 0.3s ease'
+          width: isSidebarCollapsed ? '72px' : '260px',
+          backgroundColor: 'var(--sidebar-bg)',
+          color: 'var(--sidebar-text)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          flexShrink: 0,
+          borderRight: '1px solid var(--border)',
+          transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 50,
+          position: 'relative'
         }}
-      />
+        className={`sidebar-panel ${isMobileOpen ? 'mobile-show' : ''}`}
+      >
+        <style>{`
+          @media (max-width: 768px) {
+            .sidebar-panel {
+              position: fixed !important;
+              left: 0;
+              top: 0;
+              bottom: 0;
+              transform: translateX(-100%);
+              width: 260px !important;
+              transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .sidebar-panel.mobile-show {
+              transform: translateX(0);
+            }
+          }
+        `}</style>
 
-      {/* Sidebar Drawer */}
-      <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`} style={{ 
-        width: '260px', 
-        backgroundColor: '#111111', 
-        color: '#ffffff',
-        display: 'flex', 
-        flexDirection: 'column',
-        boxShadow: '4px 0 15px rgba(0,0,0,0.1)',
-        zIndex: 10
-      }}>
-        <div style={{ 
-          padding: '25px', 
-          borderBottom: '1px solid #333333',
+        {/* Sidebar Header */}
+        <div style={{
+          height: '64px',
+          padding: '0 20px',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px'
+          justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.08)'
         }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Softech <span style={{ color: '#e60000' }}>Infotech</span></span>
+          {!isSidebarCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#2563eb' }}>
+                <Icon name="dashboard" size={18} style={{ color: '#fff' }} />
+              </div>
+              <span style={{ fontWeight: 'bold', fontSize: '1.1rem', letterSpacing: '-0.02em' }}>
+                Softech <span style={{ color: '#3b82f6' }}>Infotech</span>
+              </span>
+            </div>
+          )}
+          {isSidebarCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#2563eb' }}>
+              <Icon name="dashboard" size={20} style={{ color: '#fff' }} />
+            </div>
+          )}
+          {!isSidebarCollapsed && (
+            <button
+              onClick={() => setIsSidebarCollapsed(true)}
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px', display: 'flex' }}
+              title="Collapse menu"
+            >
+              <Icon name="chevron-left" size={18} />
+            </button>
+          )}
         </div>
 
-        {/* User Info inside Drawer */}
-        <div style={{ padding: '20px 25px', borderBottom: '1px solid #333333', display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e60000', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', flexShrink: 0 }}>
-            {user.UserName.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <span style={{ color: '#aaaaaa', fontSize: '0.8rem' }}>Welcome back,</span>
-            <strong style={{ color: '#ffffff', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.UserName}</strong>
-          </div>
-        </div>
-
-        <nav className="no-scrollbar" style={{ flex: 1, padding: '20px 0', overflowY: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-          <style>{`
-            .no-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            <li 
-              onClick={() => router.push('/dashboard')}
-              style={{ padding: '15px 25px', borderLeft: '4px solid #e60000', backgroundColor: 'rgba(230,0,0,0.1)', color: '#ffffff', cursor: 'pointer', fontWeight: '600' }}>
-              Dashboard
-            </li>
-            
-            {/* Admin Menu */}
-            <li 
-              style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} 
-              onMouseOver={e => e.currentTarget.style.color = '#fff'} 
-              onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}
-              onClick={() => {
-                setIsAdminOpen(!isAdminOpen);
-                if (!isAdminOpen) setIsMastersOpen(false);
-              }}
-            >
-              <span>Admin</span>
-              <span style={{ fontSize: '0.8rem', transition: 'transform 0.3s', transform: isAdminOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-            </li>
-            {isAdminOpen && (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, backgroundColor: '#1a1a1a' }}>
-                <li 
-                  onClick={(e) => { e.stopPropagation(); router.push('/dashboard/users'); }}
-                  style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} 
-                  onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} 
-                  onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>
-                  Users
-                </li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Attendence</li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Events</li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Approve Apps</li>
-              </ul>
-            )}
-
-            {/* Masters Menu */}
-            <li 
-              style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} 
-              onMouseOver={e => e.currentTarget.style.color = '#fff'} 
-              onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}
-              onClick={() => {
-                setIsMastersOpen(!isMastersOpen);
-                if (!isMastersOpen) setIsAdminOpen(false);
-              }}
-            >
-              <span>Masters</span>
-              <span style={{ fontSize: '0.8rem', transition: 'transform 0.3s', transform: isMastersOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</span>
-            </li>
-            {isMastersOpen && (
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, backgroundColor: '#1a1a1a' }}>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Customers</li>
-                <li onClick={(e) => { e.stopPropagation(); router.push('/dashboard/brands'); }} style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Brands</li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Categories</li>
-                <li style={{ padding: '12px 25px 12px 45px', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.9rem' }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.paddingLeft = '50px'; }} onMouseOut={e => { e.currentTarget.style.color = '#aaaaaa'; e.currentTarget.style.paddingLeft = '45px'; }}>Service Centers</li>
-              </ul>
-            )}
-
-            {/* Other Menus */}
-            <li style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}>Orders</li>
-            <li style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}>Sales</li>
-            <li style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}>Replacements</li>
-            <li style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}>My Attendence</li>
-            <li style={{ padding: '15px 25px', borderLeft: '4px solid transparent', color: '#aaaaaa', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => e.currentTarget.style.color = '#fff'} onMouseOut={e => e.currentTarget.style.color = '#aaaaaa'}>Bank QR</li>
-          </ul>
-        </nav>
-
-        <div style={{ padding: '20px', borderTop: '1px solid #333333' }}>
-          <button 
-            onClick={handleLogout}
-            style={{
-              width: '100%',
-              backgroundColor: 'transparent',
-              border: '1px solid #e60000',
-              color: '#e60000',
-              padding: '10px',
-              borderRadius: '6px',
-              cursor: 'pointer',
+        {/* User Badge Section */}
+        {!isSidebarCollapsed && (
+          <div style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              backgroundColor: '#2563eb',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               fontWeight: 'bold',
-              transition: 'all 0.3s'
-            }}
-            onMouseOver={e => { e.currentTarget.style.backgroundColor = '#e60000'; e.currentTarget.style.color = '#ffffff'; }}
-            onMouseOut={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#e60000'; }}
-          >
-            Logout
-          </button>
+              fontSize: '1rem',
+              boxShadow: '0 4px 10px rgba(37,99,235,0.3)'
+            }}>
+              {user.UserName.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {user.UserName}
+              </span>
+              <span style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                width: 'fit-content',
+                marginTop: '4px',
+                textTransform: 'uppercase'
+              }}>
+                {user.UserType || 'Staff'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Section */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '16px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px'
+        }} className="no-scrollbar">
+          <style>{`.no-scrollbar::-webkit-scrollbar { display: none; }`}</style>
+          {navigationGroups.map((group, groupIdx) => (
+            <div key={groupIdx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {!isSidebarCollapsed && (
+                <span style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  color: '#64748b',
+                  padding: '0 20px',
+                  letterSpacing: '0.05em',
+                  marginBottom: '4px'
+                }}>
+                  {group.title}
+                </span>
+              )}
+              {group.items.map((item, itemIdx) => {
+                const active = isItemActive(item);
+                return (
+                  <div
+                    key={itemIdx}
+                    onClick={() => handleSidebarItemClick(item)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: isSidebarCollapsed ? '10px 0' : '10px 20px',
+                      justifyContent: isSidebarCollapsed ? 'center' : 'flex-start',
+                      cursor: 'pointer',
+                      color: active ? '#ffffff' : '#94a3b8',
+                      backgroundColor: active ? 'var(--sidebar-active)' : 'transparent',
+                      borderLeft: active ? '3px solid #2563eb' : '3px solid transparent',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseOver={e => {
+                      if (!active) {
+                        e.currentTarget.style.color = '#fff';
+                        e.currentTarget.style.backgroundColor = 'var(--sidebar-hover)';
+                      }
+                    }}
+                    onMouseOut={e => {
+                      if (!active) {
+                        e.currentTarget.style.color = '#94a3b8';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                  >
+                    <Icon name={item.icon} size={18} style={{ flexShrink: 0, color: active ? '#3b82f6' : 'inherit' }} />
+                    {!isSidebarCollapsed && (
+                      <span style={{ fontSize: '0.85rem', fontWeight: active ? 600 : 500 }}>
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Sidebar Footer */}
+        <div style={{
+          padding: '16px 20px',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          {isSidebarCollapsed ? (
+            <button
+              onClick={() => setIsSidebarCollapsed(false)}
+              style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', justifyContent: 'center' }}
+              title="Expand menu"
+            >
+              <Icon name="chevron-right" size={20} />
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => router.push('/dashboard?view=profile')}
+                className="btn btn-secondary"
+                style={{ width: '100%', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: '#fff' }}
+              >
+                <Icon name="profile" size={16} />
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="btn btn-danger"
+                style={{ width: '100%' }}
+              >
+                <Icon name="logout" size={16} />
+                Logout
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
-      {/* Main Content Wrapper */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         
-        {/* Mobile Header */}
-        <div className="mobile-header" style={{ 
-          display: 'none', 
-          padding: '15px 20px', 
-          backgroundColor: '#fff', 
-          borderBottom: '1px solid #ddd',
+        {/* Top Navbar */}
+        <header style={{
+          height: '64px',
+          backgroundColor: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          zIndex: 5
+          padding: '0 24px',
+          flexShrink: 0,
+          zIndex: 30
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="#e60000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#111' }}>Softech</span>
+          
+          {/* Left Side: Mobile Menu Button & Breadcrumbs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button
+              onClick={() => setIsMobileOpen(true)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--foreground)',
+                cursor: 'pointer',
+                display: 'none',
+                padding: '4px'
+              }}
+              className="mobile-menu-btn"
+            >
+              ☰
+            </button>
+            <style>{`
+              @media (max-width: 768px) {
+                .mobile-menu-btn { display: flex !important; }
+              }
+            `}</style>
+            
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                <span>Softech Infotech</span>
+                {getBreadcrumbs().map((crumb, idx) => (
+                  <React.Fragment key={idx}>
+                    <span>/</span>
+                    <span style={{ color: idx === getBreadcrumbs().length - 1 ? 'var(--foreground)' : 'var(--text-secondary)', fontWeight: idx === getBreadcrumbs().length - 1 ? 600 : 'normal' }}>
+                      {crumb}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
           </div>
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.5rem', color: '#111', padding: '0 5px' }}
-          >
-            ☰
-          </button>
-        </div>
 
-        {/* Dynamic Content */}
-        {children}
-      </main>
+          {/* Right Side: Global Search, Theme, Notifications, User */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            
+            {/* Global Search Bar (Hidden on Mobile) */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} className="search-bar-desktop">
+              <span style={{ position: 'absolute', left: '12px', color: 'var(--text-secondary)' }}>
+                <Icon name="search" size={16} />
+              </span>
+              <input
+                type="text"
+                placeholder="Global search..."
+                style={{
+                  padding: '8px 12px 8px 36px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--background)',
+                  color: 'var(--foreground)',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  width: '220px',
+                  transition: 'all 0.15s ease'
+                }}
+                onFocus={e => { e.currentTarget.style.width = '280px'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                onBlur={e => { e.currentTarget.style.width = '220px'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              />
+            </div>
+            <style>{`
+              @media (max-width: 600px) {
+                .search-bar-desktop { display: none !important; }
+              }
+            `}</style>
+
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--foreground)',
+                cursor: 'pointer',
+                padding: '6px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'var(--surface-hover)'
+              }}
+              title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+            >
+              <Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} />
+            </button>
+
+            {/* Notifications Popover */}
+            <div style={{ position: 'relative' }} ref={notificationRef}>
+              <button
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--foreground)',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'var(--surface-hover)',
+                  position: 'relative'
+                }}
+              >
+                <Icon name="notifications" size={18} />
+                {unreadNotifications > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--error)',
+                    color: '#fff',
+                    fontSize: '0.65rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationOpen && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '40px',
+                  width: '320px',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  boxShadow: 'var(--shadow-lg)',
+                  padding: '12px 0',
+                  zIndex: 100,
+                  animation: 'scaleUp 0.15s ease-out forwards'
+                }}>
+                  <div style={{ padding: '0 16px 8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>Notifications</span>
+                    <button
+                      onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                    {notifications.map(n => (
+                      <div
+                        key={n.id}
+                        style={{
+                          padding: '12px 16px',
+                          borderBottom: '1px solid var(--border)',
+                          backgroundColor: n.read ? 'transparent' : 'var(--primary-light)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ fontWeight: 600, fontSize: '0.8rem', color: n.type === 'warning' ? 'var(--warning)' : 'var(--foreground)' }}>
+                            {n.title}
+                          </span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{n.time}</span>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>{n.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding: '8px 16px 0 16px', textAlign: 'center' }}>
+                    <button
+                      onClick={() => { setIsNotificationOpen(false); router.push('/dashboard?view=notifications'); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      View all system alerts
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Profile Dropdown */}
+            <div style={{ position: 'relative' }} ref={profileRef}>
+              <div
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--surface-hover)'
+                }}
+              >
+                <div style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  backgroundColor: '#2563eb',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold',
+                  fontSize: '0.8rem'
+                }}>
+                  {user.UserName.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }} className="search-bar-desktop">
+                  {user.UserName}
+                </span>
+                <Icon name="chevron-down" size={14} style={{ color: 'var(--text-secondary)' }} />
+              </div>
+
+              {isProfileOpen && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '40px',
+                  width: '200px',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '12px',
+                  boxShadow: 'var(--shadow-lg)',
+                  padding: '8px 0',
+                  zIndex: 100,
+                  animation: 'scaleUp 0.15s ease-out forwards'
+                }}>
+                  <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
+                    <p style={{ fontWeight: 'bold', fontSize: '0.85rem', margin: 0 }}>{user.UserName}</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>{user.UserType}</p>
+                  </div>
+                  <div style={{ padding: '4px 0' }}>
+                    <button
+                      onClick={() => { setIsProfileOpen(false); router.push('/dashboard?view=profile'); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', color: 'var(--foreground)', cursor: 'pointer', fontSize: '0.85rem' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icon name="profile" size={16} />
+                      My Profile
+                    </button>
+                    <button
+                      onClick={() => { setIsProfileOpen(false); router.push('/dashboard?view=settings'); }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', color: 'var(--foreground)', cursor: 'pointer', fontSize: '0.85rem' }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icon name="settings" size={16} />
+                      Account Settings
+                    </button>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border)', padding: '4px 0 0 0' }}>
+                    <button
+                      onClick={handleLogout}
+                      style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '8px 16px', background: 'none', border: 'none', textAlign: 'left', color: 'var(--error)', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+                      onMouseOver={e => e.currentTarget.style.backgroundColor = 'var(--surface-hover)'}
+                      onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <Icon name="logout" size={16} />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </header>
+
+        {/* Content Container */}
+        <main style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+          {children}
+        </main>
+      </div>
+
     </div>
   );
 }

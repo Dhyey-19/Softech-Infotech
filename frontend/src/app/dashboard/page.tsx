@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, IconName } from '../../components/Icons';
 
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [loadingData, setLoadingData] = useState(false);
 
   // 2D QR Scanner & Cart States
+  const qrCodeReaderRef = useRef<any>(null);
   const [cart, setCart] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [scannerActiveTab, setScannerActiveTab] = useState<'camera' | 'simulator'>('simulator');
@@ -129,36 +130,51 @@ export default function DashboardPage() {
   }, [checkoutPayMode, cartTotal]);
 
   useEffect(() => {
-    let html5QrcodeScanner: any = null;
+    let activeReader: any = null;
     
     if (isScanning && scannerActiveTab === 'camera') {
       import('html5-qrcode').then((module) => {
-        html5QrcodeScanner = new module.Html5QrcodeScanner(
-          "qr-reader-viewport",
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          /* verbose= */ false
-        );
+        const html5QrCode = new module.Html5Qrcode("qr-reader-viewport");
+        qrCodeReaderRef.current = html5QrCode;
+        activeReader = html5QrCode;
 
-        html5QrcodeScanner.render(
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start(
+          { facingMode: "environment" },
+          config,
           (decodedText: string) => {
-            handleScanSuccess(decodedText);
+            // STOP camera immediately on success
+            html5QrCode.stop().then(() => {
+              console.log("Webcam camera successfully stopped after scan.");
+            }).catch(err => {
+              console.error("Failed to stop webcam feed", err);
+            });
+            
             setIsScanning(false);
+            handleScanSuccess(decodedText);
           },
-          (error: any) => {
-            // silent fail
+          (errorMessage: string) => {
+            // silent fail for decoding attempts
           }
-        );
+        ).catch(err => {
+          console.error("Error starting html5-qrcode webcam:", err);
+          alert("Could not start camera. Please verify camera permissions in your browser address bar and verify you are using HTTPS.");
+          setIsScanning(false);
+        });
       }).catch(err => {
         console.error("Failed to load html5-qrcode dynamically", err);
+        setIsScanning(false);
       });
     }
 
     return () => {
-      if (html5QrcodeScanner) {
-        html5QrcodeScanner.clear().catch((err: any) => {
-          console.error("Failed to clear html5-qrcode reader", err);
+      if (activeReader) {
+        activeReader.stop().catch((err: any) => {
+          // silent ignore
         });
       }
+      qrCodeReaderRef.current = null;
     };
   }, [isScanning, scannerActiveTab]);
 
